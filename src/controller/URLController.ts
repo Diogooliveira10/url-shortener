@@ -1,29 +1,36 @@
 import { Request, Response } from "express";
 import shortId from 'shortid';
-import { config } from "../config/Constants";
+import { config } from '../config/Constants';
+import { URLModel } from '../database/model/URL';
 
 export class URLController {
     public async shorten(req: Request, res: Response): Promise<void> {
         // Verificar se a URL já existe
-        // Criar o hash pra URL
         const { originURL } = req.body
+        const url = await URLModel.findOne({ originURL })
+        if (url) {
+			res.json(url)
+			return
+		}
+        // Criar o hash pra URL
         const hash = shortId.generate()
         const shortURL = `${config.API_URL}/${hash}`
         // Salvar a URL no banco
+        const newURL = await URLModel.create({ hash, shortURL, originURL })
         // Retornar a URL que foi salva
-        res.json({ originURL, hash, shortURL })
+        res.json(newURL)
     }
 
     public async redirect(req: Request, res: Response): Promise<void> {
         // Pegando hash da URL
         const { hash } = req.params
+        const url = await URLModel.findOne({ hash })
         // Encontrar a URL original pelo hash
-        const url = {
-            originURL: 'https://cloud.mongodb.com/v2/61926d64400fef1f802776e3#clusters',
-            hash: 'Q18BCxzSw',
-            shortURL: 'http://localhost:5000/Q18BCxzSw',
-        }
+        if (url) {
+			res.redirect(url.originURL)
+			return
+		}
         // Redirecionar para URL original a partir do que encontrar no DB
-        res.redirect(url.originURL)
+        res.status(400).json({ error: 'URL not found' })
     }
 }
